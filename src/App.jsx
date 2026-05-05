@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+const ORANGE = "#f97316";
+
 const intakeDefaults = {
   childName: "",
   age: "",
   grade: "",
   assessorRole: "parent",
-  assessorName: "",
-  dialectExposure: "high",
-  msaExposure: "medium",
-  previousDiagnosis: "unknown",
-  notes: "",
+  familyHistory: "unknown",
+  avoidsReading: "unknown",
+  spellingStruggle: "unknown",
+  slowReading: "unknown",
 };
 
 const safetyDefaults = {
@@ -20,181 +21,100 @@ const safetyDefaults = {
   understandsTask: true,
 };
 
-const flow = [
-  { id: "onboarding", kind: "onboarding", title: "بيانات البداية" },
-  { id: "safety", kind: "safety", title: "تنبيه السمع والنظر" },
-  { id: "calibration", kind: "module", title: "معايرة اللغة" },
-  { id: "phonological", kind: "module", title: "الوعي الصوتي" },
-  { id: "orthographic", kind: "module", title: "الحروف والأشكال" },
-  { id: "rapidNaming", kind: "module", title: "سرعة التسمية" },
-  { id: "decoding", kind: "module", title: "القراءة وفك التشفير" },
-  { id: "spellingMemory", kind: "module", title: "الإملاء والذاكرة" },
-  { id: "results", kind: "results", title: "النتيجة والخطة" },
+const pics = {
+  cat: { label: "قطة", emoji: "🐱", image: "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=600&q=80" },
+  dog: { label: "كلب", emoji: "🐶", image: "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=600&q=80" },
+  ball: { label: "كرة", emoji: "⚽", image: "https://images.unsplash.com/photo-1552318965-6e6be7484ada?auto=format&fit=crop&w=600&q=80" },
+  house: { label: "بيت", emoji: "🏠", image: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=600&q=80" },
+  pen: { label: "قلم", emoji: "✏️", image: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=600&q=80" },
+  sun: { label: "شمس", emoji: "☀️", image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80" },
+  fire: { label: "نار", emoji: "🔥", image: "https://images.unsplash.com/photo-1523861751938-121b5323b48b?auto=format&fit=crop&w=600&q=80" },
+  moon: { label: "قمر", emoji: "🌙", image: "https://images.unsplash.com/photo-1532693322450-2cb5c511067d?auto=format&fit=crop&w=600&q=80" },
+  book: { label: "كتاب", emoji: "📘", image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80" },
+  fish: { label: "سمك", emoji: "🐟", image: "https://images.unsplash.com/photo-1524704796725-9fc3044a58b2?auto=format&fit=crop&w=600&q=80" },
+  door: { label: "باب", emoji: "🚪", image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=600&q=80" },
+  school: { label: "مدرسة", emoji: "🏫", image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?auto=format&fit=crop&w=600&q=80" },
+  tree: { label: "شجرة", emoji: "🌳", image: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?auto=format&fit=crop&w=600&q=80" },
+  child: { label: "ولد", emoji: "🧒", image: "https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?auto=format&fit=crop&w=600&q=80" },
+};
+
+function imgOpt(key, value = pics[key].label) {
+  return { value, label: pics[key].label, emoji: pics[key].emoji, image: pics[key].image };
+}
+
+const journey = [
+  { id: "welcome", kind: "welcome", mission: "بوابة فصيح" },
+  { id: "onboarding", kind: "onboarding", mission: "بطاقة البداية" },
+  { id: "safety", kind: "safety", mission: "تجهيز الرحلة" },
+  { id: "calibration", kind: "mission", mission: "مهمة الاستماع" },
+  { id: "phonological", kind: "mission", mission: "مهمة الأصوات" },
+  { id: "orthographic", kind: "mission", mission: "مهمة الأشكال" },
+  { id: "rapidNaming", kind: "mission", mission: "مهمة السرعة" },
+  { id: "decoding", kind: "mission", mission: "مهمة القراءة" },
+  { id: "spellingMemory", kind: "mission", mission: "مهمة الذاكرة" },
+  { id: "results", kind: "results", mission: "خريطة التدريب" },
 ];
 
-const moduleMeta = {
-  calibration: {
-    title: "معايرة اللغة والتعليمات",
-    domain: "spokenLanguage",
-    intro: "نتأكد أن الطفل فاهم التعليمات باللهجة المصرية قبل الاختبارات الأساسية.",
-  },
-  phonological: {
-    title: "الوعي الصوتي",
-    domain: "phonological",
-    intro: "تمييز بداية الصوت ونهايته، دمج الأصوات، حذف صوت، وعدّ المقاطع.",
-  },
-  orthographic: {
-    title: "الحروف والأشكال",
-    domain: "orthographic",
-    intro: "تمييز الحروف المتشابهة، النقاط، الحركات، وأشكال الحرف داخل الكلمة.",
-  },
-  rapidNaming: {
-    title: "سرعة التسمية",
-    domain: "rapidNaming",
-    intro: "قياس سرعة تسمية الأشياء والحروف والرموز مع حساب الأخطاء.",
-  },
-  decoding: {
-    title: "القراءة وفك التشفير",
-    domain: "decoding",
-    intro: "ربط الحروف بالأصوات، قراءة المقاطع، الكلمات غير الحقيقية، والجمل القصيرة.",
-  },
-  spellingMemory: {
-    title: "الإملاء والذاكرة",
-    domain: "spellingMemory",
-    intro: "إملاء كلمات قصيرة، ذاكرة سمعية، وترتيب أصوات أو أرقام.",
-  },
+const missionMeta = {
+  calibration: { domain: "spokenLanguage", title: "مهمة الاستماع", intro: "اسمع فصيح واختار الصورة أو الشكل المناسب." },
+  phonological: { domain: "phonological", title: "مهمة الأصوات", intro: "هنلعب مع بداية الصوت، آخر الصوت، والقافية." },
+  orthographic: { domain: "orthographic", title: "مهمة الأشكال والحروف", intro: "اصطد الحروف والأشكال المتشابهة بدقة." },
+  rapidNaming: { domain: "rapidNaming", title: "مهمة السرعة", intro: "سمّي الصور والرموز بسرعة وهدوء." },
+  decoding: { domain: "decoding", title: "مهمة القراءة", intro: "اقرأ كلمة أو جملة واختار الصورة المناسبة." },
+  spellingMemory: { domain: "spellingMemory", title: "مهمة الذاكرة والإملاء", intro: "ابنِ كلمات وتذكر تسلسلات قصيرة." },
 };
 
-const questions = {
+const missions = {
   calibration: [
-    q("CAL_001", "choice", "spokenLanguage", "instruction_comprehension", 1, "اسمع التعليمات واختار كلمة: كتاب", ["كتاب", "قطة", "كرة"], "كتاب", "اختار كلمة كتاب."),
-    {
-      id: "CAL_002",
-      type: "orderedTap",
-      domain: "spokenLanguage",
-      skill: "two_step_instruction",
-      difficulty: 1,
-      prompt: "نفّذ التعليمات بالترتيب: دائرة ثم مربع.",
-      spokenPrompt: "اضغط دائرة، وبعدها مربع.",
-      choices: ["دائرة", "نجمة", "مربع", "قلب"],
-      correctSequence: ["دائرة", "مربع"],
-      helper: "هذا يقيس فهم التعليمات، وليس القراءة.",
-    },
-    q("CAL_003", "choice", "spokenLanguage", "dialect_mapping", 1, "كلمة عايز معناها إيه؟", ["يريد", "يجري", "ينام"], "يريد", "كلمة عايز معناها إيه؟"),
-    q("CAL_004", "choice", "spokenLanguage", "task_rule", 1, "لما نقول: اختار المختلف، تعمل إيه؟", ["أختار الشيء المختلف", "أختار أول شيء", "لا أضغط"], "أختار الشيء المختلف", "لما أقول اختار المختلف، تعمل إيه؟"),
+    imageQ("CAL_01", "spokenLanguage", "picture_instruction", "اضغط صورة القطة", [imgOpt("cat"), imgOpt("dog"), imgOpt("ball")], "قطة", "اضغط صورة القطة."),
+    imageQ("CAL_02", "spokenLanguage", "word_picture", "اختار صورة الكتاب", [imgOpt("book"), imgOpt("moon"), imgOpt("fish")], "كتاب", "اختار صورة الكتاب."),
+    { id: "CAL_03", type: "colorChoice", domain: "spokenLanguage", skill: "color_instruction", difficulty: 1, prompt: "اضغط الدائرة الحمراء", choices: [{ value: "أحمر", color: "#ef4444" }, { value: "أزرق", color: "#3b82f6" }, { value: "أصفر", color: "#eab308" }], correctAnswer: "أحمر", spokenPrompt: "اضغط الدائرة الحمراء." },
+    { id: "CAL_04", type: "orderedTap", domain: "spokenLanguage", skill: "two_step_instruction", difficulty: 1, prompt: "اضغط بالترتيب: شمس ثم قمر", choices: ["قمر", "شمس", "كتاب", "قطة"], correctSequence: ["شمس", "قمر"], spokenPrompt: "اضغط شمس وبعدها قمر." },
   ],
   phonological: [
-    q("PA_001", "choice", "phonological", "initial_sound", 1, "أي كلمة تبدأ بصوت ب؟", ["بيت", "قلم", "شمس", "نار"], "بيت", "أي كلمة بتبدأ بصوت ب؟"),
-    q("PA_002", "choice", "phonological", "final_sound", 1, "أي كلمة تنتهي بصوت ر؟", ["قمر", "كتاب", "ولد", "قطة"], "قمر", "أي كلمة آخرها صوت ر؟"),
-    q("PA_003", "choice", "phonological", "blending", 2, "لو جمعنا: م + و + ز، تكون الكلمة؟", ["موز", "ماء", "نور", "بيت"], "موز", "م، و، ز. لما نجمعهم تبقى إيه؟"),
-    q("PA_004", "choice", "phonological", "deletion", 3, "كلمة كتاب بدون صوت ك تصبح؟", ["تاب", "باب", "كتاب", "كاب"], "تاب", "قول كتاب من غير ك."),
-    q("PA_005", "choice", "phonological", "syllable_count", 2, "كلمة مكتبة فيها كام مقطع صوتي تقريبًا؟", ["2", "3", "4"], "3", "كلمة مكتبة فيها كام جزء صوتي؟"),
-    q("PA_006", "choice", "phonological", "rhyme", 2, "أي كلمتين متشابهتين في آخر الصوت؟", ["نار / جار", "بيت / قلم", "شمس / بحر", "قطة / كتاب"], "نار / جار", "أي كلمتين شبه بعض في آخر الصوت؟"),
+    imageQ("PA_01", "phonological", "initial_sound", "أي صورة تبدأ بصوت ب؟", [imgOpt("house"), imgOpt("sun"), imgOpt("pen"), imgOpt("moon")], "بيت", "أي صورة تبدأ بصوت ب؟"),
+    imageQ("PA_02", "phonological", "final_sound", "أي صورة تنتهي بصوت ر؟", [imgOpt("moon"), imgOpt("book"), imgOpt("cat"), imgOpt("fish")], "قمر", "أي صورة آخرها صوت ر؟"),
+    choiceQ("PA_03", "phonological", "rhyme", "أي كلمتين متشابهتين في آخر الصوت؟", ["نار / جار", "بيت / قلم", "شمس / بحر", "قطة / كتاب"], "نار / جار", "أي كلمتين شبه بعض في آخر الصوت؟"),
+    choiceQ("PA_04", "phonological", "blending", "لو جمعنا: م + و + ز، تكون الكلمة؟", ["موز", "ماء", "نور", "بيت"], "موز", "م، و، ز. لما نجمعهم تبقى إيه؟"),
+    choiceQ("PA_05", "phonological", "deletion", "كلمة كتاب بدون صوت ك تصبح؟", ["تاب", "باب", "كتاب", "كاب"], "تاب", "قول كتاب من غير ك."),
+    choiceQ("PA_06", "phonological", "sound_count", "كلمة باب فيها كام صوت؟", ["2", "3", "4"], "3", "ب، ا، ب. فيها كام صوت؟"),
   ],
   orthographic: [
-    q("OR_001", "choice", "orthographic", "visual_discrimination", 1, "أي حرف مختلف عن الباقي؟", ["ب", "ت", "ح", "ث"], "ح"),
-    q("OR_002", "choice", "orthographic", "dot_awareness", 1, "هل الكلمتان متشابهتان أم مختلفتان؟ بيت / نيت", ["متشابهتان", "مختلفتان"], "مختلفتان"),
-    q("OR_003", "choice", "orthographic", "harakat", 2, "اختار الشكل الذي يناسب الصوت: بِت", ["بَت", "بِت", "بُت", "بْت"], "بِت", "بِت. اختار الكتابة الصح."),
-    q("OR_004", "choice", "orthographic", "positional_form", 2, "أي صيغة تمثل حرف ع في وسط الكلمة؟", ["ع", "ـعـ", "ـع", "عـ"], "ـعـ"),
-    {
-      id: "OR_005",
-      type: "multiSelect",
-      domain: "orthographic",
-      skill: "visual_scanning",
-      difficulty: 2,
-      prompt: "اختار كل حرف ب فقط من الشبكة.",
-      grid: ["ب", "ت", "ب", "ث", "ن", "ب", "ي", "ت", "ب"],
-      correctIndexes: [0, 2, 5, 8],
-      helper: "اضغط على كل الخانات التي فيها ب فقط.",
-    },
-    {
-      id: "OR_006",
-      type: "visualMemory",
-      domain: "orthographic",
-      skill: "orthographic_memory",
-      difficulty: 3,
-      prompt: "احفظ الكلمة التي ستظهر، ثم اختارها بعد أن تختفي.",
-      stimulus: "شمس",
-      exposureMs: 2500,
-      choices: ["شمس", "سمش", "شمسـ", "سش"],
-      correctAnswer: "شمس",
-    },
+    choiceQ("OR_01", "orthographic", "visual_discrimination", "اصطد الحرف المختلف", ["ب", "ت", "ح", "ث"], "ح"),
+    choiceQ("OR_02", "orthographic", "dot_awareness", "هل الكلمتان متشابهتان؟ بيت / نيت", ["متشابهتان", "مختلفتان"], "مختلفتان"),
+    choiceQ("OR_03", "orthographic", "harakat", "اختار الشكل الذي يناسب الصوت: بِت", ["بَت", "بِت", "بُت", "بْت"], "بِت", "بِت. اختار الكتابة الصح."),
+    { id: "OR_04", type: "letterHunt", domain: "orthographic", skill: "visual_scanning", difficulty: 2, prompt: "اصطد كل حرف ب فقط", grid: ["ب", "ت", "ب", "ث", "ن", "ب", "ي", "ت", "ب"], correctIndexes: [0, 2, 5, 8] },
+    choiceQ("OR_05", "orthographic", "shape_matching", "اختار الشكل المطابق: ◆", ["◆", "◇", "●", "■"], "◆"),
+    { id: "OR_06", type: "visualMemory", domain: "orthographic", skill: "orthographic_memory", difficulty: 3, prompt: "احفظ الكلمة التي ستظهر، ثم اختارها", stimulus: "شمس", choices: ["شمس", "سمش", "شمسـ", "سش"], correctAnswer: "شمس", exposureMs: 2200 },
   ],
   rapidNaming: [
-    timed("RN_001", "object_naming", "سمِّ العناصر بسرعة من اليمين لليسار، ثم اضغط تم.", ["🍎 تفاحة", "🐱 قطة", "☀️ شمس", "🚪 باب", "⚽ كرة", "🐟 سمك", "📘 كتاب", "🌙 قمر"], 8, 9000),
-    timed("RN_002", "letter_naming", "سمِّ الحروف بسرعة من اليمين لليسار، ثم اضغط تم.", ["ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز"], 10, 9500),
-    timed("RN_003", "symbol_naming", "سمِّ الأرقام والألوان بسرعة، ثم اضغط تم.", ["١", "أحمر", "٣", "أزرق", "٥", "أخضر", "٢", "أصفر"], 8, 8500),
+    { id: "RN_01", type: "timedGrid", domain: "rapidNaming", skill: "object_naming", difficulty: 2, prompt: "سمّي الصور بسرعة من اليمين لليسار", items: [imgOpt("cat"), imgOpt("sun"), imgOpt("book"), imgOpt("fish"), imgOpt("ball"), imgOpt("moon"), imgOpt("door"), imgOpt("house")], expectedCount: 8, idealTimeMs: 9000 },
+    { id: "RN_02", type: "timedGrid", domain: "rapidNaming", skill: "letter_naming", difficulty: 2, prompt: "سمّي الحروف بسرعة", items: ["ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز"], expectedCount: 10, idealTimeMs: 9000 },
+    { id: "RN_03", type: "reactionImage", domain: "rapidNaming", skill: "fast_retrieval", difficulty: 2, prompt: "اختار اسم الصورة بأسرع ما يمكن", image: imgOpt("sun"), choices: ["شمس", "قمر", "كتاب", "قطة"], correctAnswer: "شمس", idealTimeMs: 1800 },
   ],
   decoding: [
-    q("RD_001", "choice", "decoding", "letter_sound", 1, "أي حرف يمثل الصوت ب؟", ["ب", "ت", "ث", "ن"], "ب", "اختار الحرف الذي صوته ب."),
-    q("RD_002", "choice", "decoding", "syllable_reading", 1, "أي مقطع يُقرأ: با؟", ["با", "بو", "بي", "بْ"], "با", "با."),
-    q("RD_003", "choice", "decoding", "nonword_decoding", 3, "أي نطق يناسب الكلمة غير الحقيقية: دَبُت؟", ["دَ - بُت", "دِ - بات", "ذَ - بُت", "دَ - بيت"], "دَ - بُت"),
-    q("RD_004", "choice", "decoding", "lexical_decision", 2, "هل لَمَت كلمة حقيقية شائعة أم كلمة تدريبية غير حقيقية؟", ["كلمة حقيقية شائعة", "كلمة تدريبية غير حقيقية"], "كلمة تدريبية غير حقيقية"),
-    q("RD_005", "choice", "decoding", "sentence_comprehension", 2, "اقرأ: جلس عمر تحت الشجرة. أين جلس عمر؟", ["تحت الشجرة", "في المدرسة", "على البحر", "داخل البيت"], "تحت الشجرة"),
-    {
-      id: "RD_006",
-      type: "timedReading",
-      domain: "decoding",
-      skill: "oral_reading_fluency",
-      difficulty: 3,
-      prompt: "اقرأ النص بصوت واضح، ثم اضغط تم وأجب.",
-      text: "ذهب سامي إلى الحديقة. رأى قطة صغيرة تحت الشجرة.",
-      question: "ماذا رأى سامي؟",
-      choices: ["قطة صغيرة", "كرة كبيرة", "كتاب جديد", "سمكة"],
-      correctAnswer: "قطة صغيرة",
-      idealTimeMs: 13000,
-    },
+    imageQ("RD_01", "decoding", "word_to_picture", "اقرأ الكلمة واختار الصورة: قمر", [imgOpt("moon"), imgOpt("sun"), imgOpt("cat"), imgOpt("book")], "قمر"),
+    imageQ("RD_02", "decoding", "word_to_picture", "اقرأ الكلمة واختار الصورة: مدرسة", [imgOpt("school"), imgOpt("house"), imgOpt("tree"), imgOpt("door")], "مدرسة"),
+    choiceQ("RD_03", "decoding", "syllable_reading", "أي مقطع يُقرأ: با؟", ["با", "بو", "بي", "بْ"], "با", "با."),
+    choiceQ("RD_04", "decoding", "nonword_decoding", "أي نطق يناسب الكلمة التدريبية: دَبُت؟", ["دَ - بُت", "دِ - بات", "ذَ - بُت", "دَ - بيت"], "دَ - بُت"),
+    { id: "RD_05", type: "orderedTap", domain: "decoding", skill: "syllable_building", difficulty: 2, prompt: "رتّب المقاطع لتكوين كلمة: مدرسة", choices: ["سة", "مد", "ر"], correctSequence: ["مد", "ر", "سة"] },
+    { id: "RD_06", type: "timedReading", domain: "decoding", skill: "sentence_comprehension", difficulty: 3, prompt: "اقرأ الجملة ثم اختار الصورة المناسبة", text: "جلس عمر تحت الشجرة.", question: "أين جلس عمر؟", choices: [imgOpt("tree", "تحت الشجرة"), imgOpt("school", "في المدرسة"), imgOpt("house", "داخل البيت")], correctAnswer: "تحت الشجرة", idealTimeMs: 11000 },
   ],
   spellingMemory: [
-    textq("SM_001", "simple_spelling", "اكتب الكلمة التي تسمعها: بيت", "بيت", "بيت."),
-    textq("SM_002", "word_spelling", "اكتب الكلمة التي تسمعها: مدرسة", "مدرسة", "مدرسة."),
-    {
-      id: "SM_003",
-      type: "memorySpan",
-      domain: "spellingMemory",
-      skill: "auditory_memory",
-      difficulty: 2,
-      prompt: "احفظ الكلمات بالترتيب، ثم اكتبها بعد أن تختفي.",
-      sequence: ["قلم", "باب", "قمر"],
-      exposureMs: 4000,
-      placeholder: "مثال: قلم باب قمر",
-    },
-    {
-      id: "SM_004",
-      type: "orderedTap",
-      domain: "spellingMemory",
-      skill: "sound_order_memory",
-      difficulty: 2,
-      prompt: "اضغط الأصوات بالترتيب: س ثم م ثم ك.",
-      spokenPrompt: "س، م، ك. اضغطهم بنفس الترتيب.",
-      choices: ["م", "ك", "ب", "س"],
-      correctSequence: ["س", "م", "ك"],
-    },
-    {
-      id: "SM_005",
-      type: "memorySpan",
-      domain: "spellingMemory",
-      skill: "digit_span",
-      difficulty: 3,
-      prompt: "احفظ الأرقام بالترتيب، ثم اكتبها بعد أن تختفي.",
-      sequence: ["٣", "٧", "٢", "٥"],
-      exposureMs: 3500,
-      placeholder: "مثال: ٣ ٧ ٢ ٥",
-    },
-    q("SM_006", "choice", "spellingMemory", "confusable_spelling", 3, "اختار الكتابة الصحيحة لكلمة: ذهب", ["دهب", "ذهب", "زهب", "ظهب"], "ذهب", "ذهب."),
+    { id: "SM_01", type: "imageTextInput", domain: "spellingMemory", skill: "simple_spelling", difficulty: 1, prompt: "اكتب اسم الصورة", image: imgOpt("house"), correctAnswer: "بيت", spokenPrompt: "بيت." },
+    { id: "SM_02", type: "wordBuilder", domain: "spellingMemory", skill: "word_building", difficulty: 2, prompt: "ابنِ كلمة قلم من الحروف", image: imgOpt("pen"), choices: ["م", "ق", "ل", "ب"], correctSequence: ["ق", "ل", "م"] },
+    { id: "SM_03", type: "memorySpan", domain: "spellingMemory", skill: "auditory_memory", difficulty: 2, prompt: "احفظ الصور بالترتيب، ثم اختار ترتيبها", sequence: [imgOpt("pen"), imgOpt("door"), imgOpt("moon")], choices: ["قلم باب قمر", "باب قلم قمر", "قمر باب قلم"], correctAnswer: "قلم باب قمر", exposureMs: 3500 },
+    choiceQ("SM_04", "spellingMemory", "confusable_spelling", "اختار الكتابة الصحيحة لكلمة: ذهب", ["دهب", "ذهب", "زهب", "ظهب"], "ذهب", "ذهب."),
+    { id: "SM_05", type: "memorySpanText", domain: "spellingMemory", skill: "digit_span", difficulty: 3, prompt: "احفظ الأرقام بالترتيب، ثم اكتبها", sequence: ["٣", "٧", "٢", "٥"], correctAnswer: "٣ ٧ ٢ ٥", exposureMs: 3200 },
   ],
 };
 
-function q(id, type, domain, skill, difficulty, prompt, choices, correctAnswer, spokenPrompt = "") {
-  return { id, type, domain, skill, difficulty, prompt, choices, correctAnswer, spokenPrompt };
+function imageQ(id, domain, skill, prompt, options, correctAnswer, spokenPrompt = "") {
+  return { id, type: "imageChoice", domain, skill, difficulty: 1, prompt, choices: options, correctAnswer, spokenPrompt };
 }
 
-function textq(id, skill, prompt, correctAnswer, spokenPrompt) {
-  return { id, type: "textInput", domain: "spellingMemory", skill, difficulty: 2, prompt, correctAnswer, spokenPrompt, placeholder: "اكتب هنا" };
-}
-
-function timed(id, skill, prompt, stimuli, expectedCount, idealTimeMs) {
-  return { id, type: "timedNaming", domain: "rapidNaming", skill, difficulty: 2, prompt, stimuli, expectedCount, idealTimeMs };
+function choiceQ(id, domain, skill, prompt, choices, correctAnswer, spokenPrompt = "") {
+  return { id, type: "choice", domain, skill, difficulty: 2, prompt, choices, correctAnswer, spokenPrompt };
 }
 
 function speak(text) {
@@ -217,6 +137,16 @@ function normalizeArabic(value) {
     .replace(/\s+/g, " ");
 }
 
+function clamp(value) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function avg(values) {
+  const clean = values.filter(Number.isFinite);
+  if (!clean.length) return null;
+  return Math.round(clean.reduce((a, b) => a + b, 0) / clean.length);
+}
+
 function levenshtein(a, b) {
   const s = normalizeArabic(a).replace(/\s/g, "");
   const t = normalizeArabic(b).replace(/\s/g, "");
@@ -232,226 +162,230 @@ function levenshtein(a, b) {
   return dp[s.length][t.length];
 }
 
-function similarityScore(answer, correct) {
+function fuzzy(answer, correct) {
   const a = normalizeArabic(answer).replace(/\s/g, "");
   const b = normalizeArabic(correct).replace(/\s/g, "");
   if (!a || !b) return 0;
-  const maxLen = Math.max(a.length, b.length);
-  return Math.max(0, Math.round((1 - levenshtein(a, b) / maxLen) * 100));
+  return clamp((1 - levenshtein(a, b) / Math.max(a.length, b.length)) * 100);
 }
 
-function avg(values) {
-  const valid = values.filter((x) => Number.isFinite(x));
-  if (!valid.length) return null;
-  return Math.round(valid.reduce((a, b) => a + b, 0) / valid.length);
+function parentRisk(intake) {
+  let risk = 0;
+  if (intake.familyHistory === "yes") risk += 25;
+  if (intake.avoidsReading === "yes") risk += 25;
+  if (intake.spellingStruggle === "yes") risk += 25;
+  if (intake.slowReading === "yes") risk += 25;
+  return risk;
 }
 
-function clamp(n) {
-  return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function level(score) {
-  if (score >= 80) return ["قوي", "good"];
-  if (score >= 60) return ["متوسط", "mid"];
-  if (score >= 40) return ["يحتاج دعم", "warn"];
-  return ["مرتفع الخطورة", "bad"];
-}
-
-function computeResults(responses, safety) {
+function computeResults(responses, safety, intake) {
   const domains = ["spokenLanguage", "phonological", "orthographic", "rapidNaming", "decoding", "spellingMemory"];
   const domainScores = Object.fromEntries(domains.map((d) => [d, avg(responses.filter((r) => r.domain === d).map((r) => r.score))]));
-  const skills = {};
+  const skillScores = {};
   responses.forEach((r) => {
-    skills[r.skill] ||= [];
-    skills[r.skill].push(r.score);
+    skillScores[r.skill] ||= [];
+    skillScores[r.skill].push(r.score);
   });
-  const skillScores = Object.fromEntries(Object.entries(skills).map(([k, v]) => [k, avg(v)]));
+  Object.keys(skillScores).forEach((k) => (skillScores[k] = avg(skillScores[k])));
   const core = [domainScores.phonological, domainScores.orthographic, domainScores.rapidNaming, domainScores.decoding, domainScores.spellingMemory].filter((x) => x !== null);
-  const overall = avg(core) ?? 0;
+  const coreScore = avg(core) ?? 0;
+  const questionnaireRisk = parentRisk(intake);
+  const overall = clamp(coreScore * 0.9 + (100 - questionnaireRisk) * 0.1);
   const weakDomains = Object.entries(domainScores).filter(([d, s]) => d !== "spokenLanguage" && s !== null && s < 60).map(([d]) => d);
   const flags = [];
-  if (safety.hearingIssue) flags.push("ملاحظة سمعية قد تؤثر على الأسئلة الصوتية.");
-  if (safety.visionIssue) flags.push("ملاحظة بصرية قد تؤثر على أسئلة الحروف والشكل.");
-  if (safety.tiredToday) flags.push("الطفل مرهق اليوم؛ يفضل إعادة التقييم لاحقًا للتأكيد.");
-  if (safety.attentionIssue) flags.push("تشتت الانتباه قد يؤثر على الوقت والدقة.");
-  if (!safety.understandsTask) flags.push("فهم التعليمات غير مؤكد؛ لا تعتمد على النتيجة وحدها.");
+  if (safety.hearingIssue) flags.push("ملاحظة سمعية قد تؤثر على أنشطة الصوت.");
+  if (safety.visionIssue) flags.push("ملاحظة بصرية قد تؤثر على أنشطة الصور والحروف.");
+  if (safety.tiredToday) flags.push("الطفل مرهق اليوم؛ يفضل إعادة التجربة لاحقًا للتأكيد.");
+  if (safety.attentionIssue) flags.push("تشتت الانتباه قد يؤثر على السرعة والدقة.");
   let risk = "منخفض";
   if (overall < 45 || weakDomains.length >= 3) risk = "مرتفع";
   else if (overall < 65 || weakDomains.length >= 2) risk = "متوسط";
-  return { domainScores, skillScores, overall, weakDomains, flags, risk };
+  return { domainScores, skillScores, weakDomains, flags, overall, risk, questionnaireRisk };
 }
 
-function therapyPlan(scores) {
-  const names = {
-    phonological: ["مسار الوعي الصوتي", "ألعاب بداية الصوت، الدمج، الحذف، وعد المقاطع"],
-    orthographic: ["مسار الحروف المتشابهة", "ألعاب النقاط، الحركات، شكل الحرف، والبحث البصري"],
-    rapidNaming: ["مسار سرعة التسمية", "ألعاب تسمية الأشياء والحروف والأرقام بسرعة"],
-    decoding: ["مسار القراءة", "حرف-صوت، مقاطع، كلمات غير حقيقية، كلمات حقيقية، ثم جمل"],
-    spellingMemory: ["مسار الإملاء والذاكرة", "إملاء، ترتيب أصوات، ذاكرة كلمات وأرقام"],
+function makePlan(scores) {
+  const map = {
+    phonological: ["مغامرة الأصوات", "ألعاب القافية، بداية الصوت، الدمج، والحذف"],
+    orthographic: ["مغامرة الحروف", "تمييز النقاط، الحركات، البحث البصري، والحروف المتشابهة"],
+    rapidNaming: ["مغامرة السرعة", "تسمية الصور، الألوان، الأرقام، والحروف بمؤقت لطيف"],
+    decoding: ["مغامرة القراءة", "حرف-صوت، مقاطع، كلمات تدريبية، ثم جمل قصيرة"],
+    spellingMemory: ["مغامرة الذاكرة", "بناء كلمات، إملاء، ترتيب أصوات، وذاكرة صور"],
   };
-  const plan = Object.entries(names)
+  const plan = Object.entries(map)
     .filter(([domain]) => (scores[domain] ?? 100) < 60)
     .map(([domain, [title, game]]) => ({ domain, title, game, level: scores[domain] < 40 ? 1 : 2 }));
-  return plan.length ? plan : [{ domain: "balanced", title: "مسار متوازن", game: "ابدأ بمستوى متوسط في كل الألعاب وأعد التقييم بعد 10 جلسات", level: 3 }];
+  return plan.length ? plan : [{ domain: "balanced", title: "رحلة متوازنة", game: "ابدأ بمستوى متوسط في كل الألعاب وأعد التقييم بعد 10 جلسات", level: 3 }];
 }
 
 export default function App() {
   const [step, setStep] = useState(0);
-  const [questionIndex, setQuestionIndex] = useState(0);
+  const [qIndex, setQIndex] = useState(0);
   const [intake, setIntake] = useState(intakeDefaults);
   const [safety, setSafety] = useState(safetyDefaults);
   const [responses, setResponses] = useState([]);
-  const current = flow[step];
+  const [stars, setStars] = useState(0);
+  const [feedback, setFeedback] = useState(null);
 
-  function next() {
-    setQuestionIndex(0);
-    setStep((s) => Math.min(s + 1, flow.length - 1));
-    scrollToTop();
-  }
+  const current = journey[step];
+  const totalActivities = journey.filter((x) => x.kind === "mission").reduce((sum, x) => sum + missions[x.id].length, 0);
+  const progress = Math.round(((responses.length + (current.kind === "results" ? 1 : 0)) / Math.max(1, totalActivities)) * 100);
 
-  function back() {
-    setQuestionIndex(0);
-    setStep((s) => Math.max(s - 1, 0));
-    scrollToTop();
-  }
-
-  function scrollToTop() {
+  function nextStep() {
+    setQIndex(0);
+    setStep((s) => Math.min(s + 1, journey.length - 1));
     setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 20);
   }
 
-  function answer(response) {
-    const qs = questions[current.id];
-    setResponses((prev) => [...prev, response]);
+  function prevStep() {
+    setQIndex(0);
+    setStep((s) => Math.max(s - 1, 0));
+  }
 
-    // Do NOT scroll to the top after every answer.
-    // Only move naturally to the next question inside the same module.
-    if (questionIndex + 1 < qs.length) {
-      setQuestionIndex((i) => i + 1);
-      return;
-    }
+  function handleAnswer(response) {
+    const earned = response.score >= 70 ? 2 : response.score >= 40 ? 1 : 0;
+    setResponses((old) => [...old, response]);
+    setStars((old) => old + earned);
+    setFeedback({ score: response.score, earned });
 
-    // Scroll only when moving to a new major step/module.
-    next();
+    window.setTimeout(() => {
+      setFeedback(null);
+      const qs = missions[current.id];
+      if (qIndex + 1 < qs.length) setQIndex((i) => i + 1);
+      else nextStep();
+    }, 650);
   }
 
   function restart() {
     setStep(0);
-    setQuestionIndex(0);
+    setQIndex(0);
     setResponses([]);
+    setStars(0);
     setSafety(safetyDefaults);
-    scrollToTop();
   }
 
   return (
     <div className="app" dir="rtl">
       <style>{css}</style>
-      <Header step={step} responses={responses} />
-      <div className="layout">
-        <main>
-          {current.kind === "onboarding" && <Onboarding intake={intake} setIntake={setIntake} onNext={next} />}
-          {current.kind === "safety" && <Safety safety={safety} setSafety={setSafety} onNext={next} onBack={back} />}
-          {current.kind === "module" && <Module id={current.id} index={questionIndex} onAnswer={answer} onBack={back} />}
-          {current.kind === "results" && <Results intake={intake} safety={safety} responses={responses} onRestart={restart} />}
-        </main>
-        <Timeline step={step} />
-      </div>
+      <TopBar mission={current.mission} progress={progress} stars={stars} />
+      {feedback && <Feedback score={feedback.score} earned={feedback.earned} />}
+      <main className="stage">
+        {current.kind === "welcome" && <Welcome onNext={nextStep} />}
+        {current.kind === "onboarding" && <Onboarding intake={intake} setIntake={setIntake} onNext={nextStep} />}
+        {current.kind === "safety" && <Safety safety={safety} setSafety={setSafety} onNext={nextStep} onBack={prevStep} />}
+        {current.kind === "mission" && <Mission id={current.id} qIndex={qIndex} onAnswer={handleAnswer} onBack={prevStep} />}
+        {current.kind === "results" && <Results intake={intake} safety={safety} responses={responses} stars={stars} onRestart={restart} />}
+      </main>
     </div>
   );
 }
 
-function Header({ step, responses }) {
+function TopBar({ mission, progress, stars }) {
   return (
-    <header className="hero">
-      <div className="logo">ض</div>
-      <div className="heroText">
-        <p>Arabic / Egyptian Dyslexia Screening Prototype</p>
-        <h1>التقييم المبدئي لصعوبات القراءة</h1>
-        <span>فرز مبدئي، ملف مهارات، وتوجيه تلقائي لمسار الألعاب العلاجية.</span>
+    <header className="top">
+      <div className="brand">
+        <div className="mascot">🦉</div>
+        <div>
+          <p>رحلة فصيح</p>
+          <h1>{mission}</h1>
+        </div>
       </div>
-      <div className="heroBadges">
-        <Badge>الخطوة {step + 1} من {flow.length}</Badge>
-        <Badge>{responses.length} إجابة</Badge>
-        <Badge>ليس تشخيصًا نهائيًا</Badge>
+      <div className="topStats">
+        <span>⭐ {stars}</span>
+        <span>{progress}%</span>
       </div>
-      <Progress value={((step + 1) / flow.length) * 100} />
+      <div className="progress"><i style={{ width: `${progress}%` }} /></div>
     </header>
   );
 }
 
-function Timeline({ step }) {
+function Feedback({ score, earned }) {
+  const msg = score >= 70 ? "رائع!" : score >= 40 ? "محاولة جيدة" : "ولا يهمك، كمل";
+  return <div className="feedback"><b>{msg}</b><span>{"⭐".repeat(earned || 1)}</span></div>;
+}
+
+function Welcome({ onNext }) {
   return (
-    <aside className="side">
-      <h3>مسار التقييم</h3>
-      {flow.map((s, i) => (
-        <div key={s.id} className={`step ${i === step ? "active" : ""} ${i < step ? "done" : ""}`}>
-          <b>{i < step ? "✓" : i + 1}</b>
-          <span>{s.title}</span>
+    <section className="card intro">
+      <div className="guide">
+        <div className="owl">🦉</div>
+        <div>
+          <h2>أهلًا، أنا فصيح!</h2>
+          <p>هنعمل شوية أنشطة ممتعة بالصور والأصوات. الهدف إننا نعرف إيه المهارات اللي محتاجة تدريب أكتر.</p>
         </div>
-      ))}
-    </aside>
+      </div>
+      <div className="featureGrid">
+        <Feature icon="🎧" title="اسمع" text="تعليمات قصيرة وواضحة." />
+        <Feature icon="🖼️" title="اختار" text="صور وبطاقات كبيرة." />
+        <Feature icon="⭐" title="اجمع نجوم" text="كل نشاط يعطيك تقدم وتشجيع." />
+      </div>
+      <Notice warn>هذه الرحلة ليست تشخيصًا طبيًا نهائيًا. إذا ظهر احتياج قوي للدعم، يُفضّل الرجوع إلى مختص.</Notice>
+      <button className="primary big" onClick={onNext}>ابدأ الرحلة</button>
+    </section>
   );
 }
 
 function Onboarding({ intake, setIntake, onNext }) {
   const ok = intake.childName.trim() && intake.age;
+  const yn = [["unknown", "غير معروف"], ["yes", "نعم"], ["no", "لا"]];
   return (
-    <section className="card" dir="rtl">
-      <Title tag="01" title="بيانات البداية" text="املأ بيانات الطفل والمقيم. هذه البيانات تساعد في تفسير النتيجة حسب العمر واللغة." />
+    <section className="card">
+      <Title tag="بطاقة" title="بطاقة البداية" text="بيانات بسيطة تساعدنا نفهم الرحلة بشكل أفضل." />
       <div className="grid2">
         <Field label="اسم الطفل" value={intake.childName} onChange={(v) => setIntake({ ...intake, childName: v })} placeholder="مثال: آدم" />
         <Field label="العمر" type="number" value={intake.age} onChange={(v) => setIntake({ ...intake, age: v })} placeholder="مثال: 8" />
         <Field label="الصف الدراسي" value={intake.grade} onChange={(v) => setIntake({ ...intake, grade: v })} placeholder="مثال: الصف الثالث" />
-        <Field label="اسم المقيم" value={intake.assessorName} onChange={(v) => setIntake({ ...intake, assessorName: v })} placeholder="ولي الأمر أو المعالج" />
-        <Select label="صفة المقيم" value={intake.assessorRole} onChange={(v) => setIntake({ ...intake, assessorRole: v })} options={[['parent','ولي أمر'],['therapist','أخصائي / معالج'],['teacher','مدرس'],['researcher','باحث']]} />
-        <Select label="التعرض للهجة المصرية" value={intake.dialectExposure} onChange={(v) => setIntake({ ...intake, dialectExposure: v })} options={[['high','مرتفع'],['medium','متوسط'],['low','ضعيف']]} />
-        <Select label="التعرض للعربية الفصحى" value={intake.msaExposure} onChange={(v) => setIntake({ ...intake, msaExposure: v })} options={[['high','مرتفع'],['medium','متوسط'],['low','ضعيف']]} />
-        <Select label="تشخيص سابق؟" value={intake.previousDiagnosis} onChange={(v) => setIntake({ ...intake, previousDiagnosis: v })} options={[['unknown','غير معروف'],['yes','نعم'],['no','لا']]} />
+        <Select label="صفة المقيم" value={intake.assessorRole} onChange={(v) => setIntake({ ...intake, assessorRole: v })} options={[["parent", "ولي أمر"], ["therapist", "أخصائي"], ["teacher", "مدرس"]]} />
+        <Select label="هل يوجد تاريخ عائلي لصعوبات القراءة؟" value={intake.familyHistory} onChange={(v) => setIntake({ ...intake, familyHistory: v })} options={yn} />
+        <Select label="هل الطفل يتجنب القراءة؟" value={intake.avoidsReading} onChange={(v) => setIntake({ ...intake, avoidsReading: v })} options={yn} />
+        <Select label="هل يعاني في الإملاء؟" value={intake.spellingStruggle} onChange={(v) => setIntake({ ...intake, spellingStruggle: v })} options={yn} />
+        <Select label="هل يقرأ ببطء؟" value={intake.slowReading} onChange={(v) => setIntake({ ...intake, slowReading: v })} options={yn} />
       </div>
-      <label className="label">ملاحظات<textarea value={intake.notes} onChange={(e) => setIntake({ ...intake, notes: e.target.value })} placeholder="مثال: الطفل متوتر اليوم / يلبس نظارة" /></label>
-      <Notice>هذا الاختبار للفرز وتحديد المسار التدريبي فقط، ولا يغني عن التشخيص الكامل بواسطة مختص.</Notice>
-      <button className="primary" disabled={!ok} onClick={onNext}>ابدأ التقييم</button>
+      <button className="primary" disabled={!ok} onClick={onNext}>جاهز للمهمة</button>
     </section>
   );
 }
 
 function Safety({ safety, setSafety, onNext, onBack }) {
   const items = [
-    ["hearingIssue", "يوجد ضعف سمع أو صعوبة في سماع التعليمات"],
-    ["visionIssue", "يوجد ضعف نظر أو صعوبة في رؤية الحروف"],
-    ["tiredToday", "الطفل مرهق أو نعسان أو متوتر اليوم"],
-    ["attentionIssue", "يوجد تشتت انتباه واضح أثناء الجلسة"],
+    ["hearingIssue", "يوجد صعوبة في السمع أو الصوت غير واضح"],
+    ["visionIssue", "يوجد صعوبة في رؤية الشاشة أو الحروف"],
+    ["tiredToday", "الطفل مرهق أو متوتر اليوم"],
+    ["attentionIssue", "يوجد تشتت انتباه واضح"],
   ];
   return (
-    <section className="card" dir="rtl">
-      <Title tag="فحص" title="تنبيه السمع والنظر والانتباه" text="هذه الملاحظات لا تمنع الاختبار، لكنها تجعل تفسير النتيجة أكثر حذرًا." />
+    <section className="card">
+      <Title tag="تجهيز" title="قبل ما نبدأ" text="خلّي الصوت واضح والشاشة مريحة. لو فيه ملاحظة، سنأخذها في التقرير." />
       <div className="checks">
-        {items.map(([key, text]) => <Check key={key} checked={safety[key]} onChange={(v) => setSafety({ ...safety, [key]: v })}>{text}</Check>)}
-        <Check checked={safety.understandsTask} onChange={(v) => setSafety({ ...safety, understandsTask: v })}>الطفل يبدو فاهمًا لفكرة الاختيار والضغط على الإجابة</Check>
+        {items.map(([key, label]) => <Check key={key} checked={safety[key]} onChange={(v) => setSafety({ ...safety, [key]: v })}>{label}</Check>)}
+        <Check checked={safety.understandsTask} onChange={(v) => setSafety({ ...safety, understandsTask: v })}>الطفل فاهم فكرة الاختيار والضغط</Check>
       </div>
-      <Notice warn>في النسخة الطبية النهائية، يفضل إيقاف الاختبار إذا كانت مشكلة السمع أو النظر شديدة وتحويل الطفل لفحص مناسب.</Notice>
-      <div className="row"><button className="secondary" onClick={onBack}>رجوع</button><button className="primary" onClick={onNext}>متابعة</button></div>
+      <div className="row"><button className="secondary" onClick={onBack}>رجوع</button><button className="primary" onClick={onNext}>كمل</button></div>
     </section>
   );
 }
 
-function Module({ id, index, onAnswer, onBack }) {
-  const meta = moduleMeta[id];
-  const item = questions[id][index];
+function Mission({ id, qIndex, onAnswer, onBack }) {
+  const [resting, setResting] = useState(false);
+  const meta = missionMeta[id];
+  const item = missions[id][qIndex];
   return (
-    <section className="card" dir="rtl">
-      <div className="moduleHead">
+    <section className="card mission">
+      <div className="missionHead">
         <div>
-          <Badge>{meta.domain}</Badge>
-          <h2>{meta.title}</h2>
-          {index === 0 && <p>{meta.intro}</p>}
+          <span className="missionTag">{meta.title}</span>
+          <h2>{qIndex === 0 ? meta.intro : "نشاط جديد"}</h2>
         </div>
-        <strong>{index + 1}/{questions[id].length}</strong>
+        <div className="bubble">{qIndex + 1}/{missions[id].length}</div>
       </div>
-      <Progress value={(index / questions[id].length) * 100} />
-      <Question item={item} onAnswer={onAnswer} />
-      <button className="link" onClick={onBack}>رجوع للخطوة السابقة</button>
+      <div className="miniProgress"><i style={{ width: `${(qIndex / missions[id].length) * 100}%` }} /></div>
+      {resting ? <Rest onResume={() => setResting(false)} /> : <Question key={item.id} item={item} onAnswer={onAnswer} />}
+      <div className="row footerActions"><button className="secondary" onClick={() => setResting(true)}>استراحة</button><button className="ghost" onClick={onBack}>رجوع</button></div>
     </section>
   );
+}
+
+function Rest({ onResume }) {
+  return <div className="rest"><div>🍊</div><h3>استراحة قصيرة</h3><p>خد نفس، اشرب مياه، ولما تكون جاهز كمل الرحلة.</p><button className="primary" onClick={onResume}>كمل</button></div>;
 }
 
 function Question({ item, onAnswer }) {
@@ -463,17 +397,17 @@ function Question({ item, onAnswer }) {
   const [timerStart, setTimerStart] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const [errors, setErrors] = useState("0");
-  const [showStimulus, setShowStimulus] = useState(false);
-  const [stimulusSeen, setStimulusSeen] = useState(false);
+  const [show, setShow] = useState(false);
+  const [seen, setSeen] = useState(false);
   const [readingDone, setReadingDone] = useState(false);
 
   useEffect(() => {
     if (!timerStart) return;
-    const id = setInterval(() => setElapsed(Date.now() - timerStart), 120);
+    const id = setInterval(() => setElapsed(Date.now() - timerStart), 100);
     return () => clearInterval(id);
   }, [timerStart]);
 
-  function base(score, answer, extra = {}) {
+  function submit(score, answer, extra = {}) {
     onAnswer({
       itemId: item.id,
       domain: item.domain,
@@ -482,7 +416,7 @@ function Question({ item, onAnswer }) {
       difficulty: item.difficulty,
       prompt: item.prompt,
       selectedAnswer: answer,
-      correctAnswer: item.correctAnswer || item.correctSequence || item.sequence || item.correctIndexes || null,
+      correctAnswer: item.correctAnswer || item.correctSequence || item.correctIndexes || null,
       score: clamp(score),
       isCorrect: score >= 70,
       responseTimeMs: Date.now() - start,
@@ -491,119 +425,125 @@ function Question({ item, onAnswer }) {
     });
   }
 
-  function submitChoice() {
-    base(normalizeArabic(selected) === normalizeArabic(item.correctAnswer) ? 100 : 0, selected);
+  function submitChoice(value = selected) {
+    submit(normalizeArabic(value) === normalizeArabic(item.correctAnswer) ? 100 : 0, value);
+  }
+
+  function submitImage(value = selected) {
+    submit(normalizeArabic(value) === normalizeArabic(item.correctAnswer) ? 100 : 0, value);
   }
 
   function submitText() {
-    base(similarityScore(text, item.correctAnswer), text);
-  }
-
-  function submitMulti() {
-    const correct = new Set(item.correctIndexes);
-    const picked = new Set(multi);
-    let points = 0;
-    item.grid.forEach((_, i) => { if (correct.has(i) === picked.has(i)) points += 1; });
-    base((points / item.grid.length) * 100, multi);
+    submit(fuzzy(text, item.correctAnswer), text);
   }
 
   function submitSequence() {
     let points = 0;
-    item.correctSequence.forEach((x, i) => { if (normalizeArabic(sequence[i]) === normalizeArabic(x)) points += 1; });
-    base((points / item.correctSequence.length) * 100 - Math.abs(sequence.length - item.correctSequence.length) * 15, sequence);
+    item.correctSequence.forEach((v, i) => { if (normalizeArabic(sequence[i]) === normalizeArabic(v)) points++; });
+    submit((points / item.correctSequence.length) * 100 - Math.abs(sequence.length - item.correctSequence.length) * 15, sequence);
+  }
+
+  function submitHunt() {
+    const correct = new Set(item.correctIndexes);
+    const chosen = new Set(multi);
+    let points = 0;
+    item.grid.forEach((_, i) => { if (correct.has(i) === chosen.has(i)) points++; });
+    submit((points / item.grid.length) * 100, multi);
   }
 
   function reveal() {
-    setShowStimulus(true);
-    setStimulusSeen(true);
-    setTimeout(() => setShowStimulus(false), item.exposureMs || 3000);
+    setShow(true); setSeen(true);
+    setTimeout(() => setShow(false), item.exposureMs || 3000);
   }
 
-  function submitMemory() {
-    const typed = normalizeArabic(text).split(/[\s،,]+/).filter(Boolean);
-    let points = 0;
-    item.sequence.forEach((x, i) => { if (normalizeArabic(typed[i]) === normalizeArabic(x)) points += 1; });
-    base((points / item.sequence.length) * 100 - Math.max(0, typed.length - item.sequence.length) * 10, typed);
-  }
-
-  function submitTimedNaming() {
-    const errorCount = Number(errors || 0);
+  function submitTimedGrid() {
     const used = elapsed || Date.now() - start;
-    const accuracy = ((item.expectedCount - errorCount) / item.expectedCount) * 100;
+    const err = Number(errors || 0);
+    const accuracy = ((item.expectedCount - err) / item.expectedCount) * 100;
     const speed = Math.min(100, (item.idealTimeMs / Math.max(1, used)) * 100);
-    base(accuracy * 0.65 + speed * 0.35, `errors:${errorCount}`, { elapsedMs: used, errorCount });
+    submit(accuracy * 0.65 + speed * 0.35, `errors:${err}`, { elapsedMs: used, errorCount: err });
+  }
+
+  function submitReaction() {
+    const used = Date.now() - start;
+    const correct = normalizeArabic(selected) === normalizeArabic(item.correctAnswer);
+    const speed = Math.min(100, (item.idealTimeMs / Math.max(1, used)) * 100);
+    submit(correct ? 70 + speed * 0.3 : speed * 0.2, selected, { elapsedMs: used });
   }
 
   function submitTimedReading() {
     const used = elapsed || Date.now() - start;
     const correct = normalizeArabic(selected) === normalizeArabic(item.correctAnswer);
     const speed = Math.min(100, (item.idealTimeMs / Math.max(1, used)) * 100);
-    base(correct ? 70 + speed * 0.3 : speed * 0.25, selected, { elapsedMs: used });
+    submit(correct ? 70 + speed * 0.3 : speed * 0.25, selected, { elapsedMs: used });
   }
 
   return (
     <div className="question">
-      <div className="qTop"><Badge>{item.skill}</Badge><Badge>صعوبة {item.difficulty}</Badge>{item.spokenPrompt && <button className="audio" onClick={() => speak(item.spokenPrompt)}>🔊 اسمع</button>}</div>
+      <div className="qTop">
+        <span>🎯 نشاط</span>
+        {item.spokenPrompt && <button className="sound" onClick={() => speak(item.spokenPrompt)}>🔊 اسمع</button>}
+      </div>
       <h3>{item.prompt}</h3>
-      {item.helper && <p className="muted">{item.helper}</p>}
 
-      {item.type === "choice" && <Choice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={submitChoice} />}
-
-      {item.type === "textInput" && <><input className="answer" value={text} onChange={(e) => setText(e.target.value)} placeholder={item.placeholder || "اكتب هنا"} /><button className="primary" disabled={!text.trim()} onClick={submitText}>تأكيد</button></>}
-
-      {item.type === "multiSelect" && <><div className="letters">{item.grid.map((x, i) => <button key={i} className={multi.includes(i) ? "selected" : ""} onClick={() => setMulti((p) => p.includes(i) ? p.filter((z) => z !== i) : [...p, i])}>{x}</button>)}</div><button className="primary" disabled={!multi.length} onClick={submitMulti}>تأكيد الاختيارات</button></>}
-
-      {item.type === "orderedTap" && <><div className="sequence">اختيارك: <b>{sequence.length ? sequence.join(" ← ") : "لا يوجد"}</b></div><div className="choices big">{item.choices.map((c) => <button key={c} onClick={() => setSequence((p) => [...p, c])}>{c}</button>)}</div><div className="row"><button className="secondary" onClick={() => setSequence([])}>مسح</button><button className="primary" disabled={!sequence.length} onClick={submitSequence}>تأكيد</button></div></>}
-
-      {item.type === "visualMemory" && <><div className="memory">{!stimulusSeen && <button className="secondary" onClick={reveal}>إظهار الكلمة</button>}{showStimulus && <strong>{item.stimulus}</strong>}{stimulusSeen && !showStimulus && <span>اختار الكلمة التي ظهرت</span>}</div>{stimulusSeen && !showStimulus && <Choice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={submitChoice} />}</>}
-
-      {item.type === "memorySpan" && <><div className="memory">{!stimulusSeen && <button className="secondary" onClick={reveal}>عرض التسلسل</button>}{showStimulus && <strong>{item.sequence.join("  •  ")}</strong>}{stimulusSeen && !showStimulus && <span>اكتب ما تتذكره بالترتيب</span>}</div><input className="answer" disabled={!stimulusSeen || showStimulus} value={text} onChange={(e) => setText(e.target.value)} placeholder={item.placeholder || "اكتب هنا"} /><button className="primary" disabled={!stimulusSeen || showStimulus || !text.trim()} onClick={submitMemory}>تأكيد</button></>}
-
-      {item.type === "timedNaming" && <><Timer elapsed={elapsed} started={!!timerStart} onStart={() => setTimerStart(Date.now())} onStop={() => setTimerStart(null)} /><div className="naming">{item.stimuli.map((s, i) => <div key={i}>{s}</div>)}</div><label className="label small">عدد الأخطاء أو الترددات<select value={errors} onChange={(e) => setErrors(e.target.value)}><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4 أو أكثر</option></select></label><button className="primary" disabled={!timerStart && elapsed === 0} onClick={submitTimedNaming}>تم التسمية</button></>}
-
-      {item.type === "timedReading" && <><div className="reading">{item.text}</div><Timer elapsed={elapsed} started={!!timerStart} onStart={() => setTimerStart(Date.now())} onStop={() => setReadingDone(true)} stopText="انتهيت من القراءة" />{readingDone && <><h4>{item.question}</h4><Choice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={submitTimedReading} /></>}</>}
+      {item.type === "imageChoice" && <ImageChoice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={submitImage} />}
+      {item.type === "choice" && <Choice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={() => submitChoice()} />}
+      {item.type === "colorChoice" && <ColorChoice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={() => submitChoice()} />}
+      {item.type === "letterHunt" && <><div className="letterGrid">{item.grid.map((v, i) => <button key={i} className={multi.includes(i) ? "selected" : ""} onClick={() => setMulti((old) => old.includes(i) ? old.filter((x) => x !== i) : [...old, i])}>{v}</button>)}</div><button className="primary" disabled={!multi.length} onClick={submitHunt}>تأكيد الصيد</button></>}
+      {item.type === "orderedTap" && <OrderedTap choices={item.choices} sequence={sequence} setSequence={setSequence} onSubmit={submitSequence} />}
+      {item.type === "wordBuilder" && <><PictureCard item={item.image} /><OrderedTap choices={item.choices} sequence={sequence} setSequence={setSequence} onSubmit={submitSequence} /></>}
+      {item.type === "visualMemory" && <><div className="memory">{!seen && <button className="secondary" onClick={reveal}>إظهار الكلمة</button>}{show && <strong>{item.stimulus}</strong>}{seen && !show && <span>اختار ما ظهر</span>}</div>{seen && !show && <Choice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={() => submitChoice()} />}</>}
+      {item.type === "memorySpan" && <><div className="memory">{!seen && <button className="secondary" onClick={reveal}>عرض الصور</button>}{show && <div className="miniPics">{item.sequence.map((x) => <PictureCard key={x.label} item={x} small />)}</div>}{seen && !show && <span>اختار الترتيب الصحيح</span>}</div>{seen && !show && <Choice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={() => submitChoice()} />}</>}
+      {item.type === "memorySpanText" && <><div className="memory">{!seen && <button className="secondary" onClick={reveal}>عرض التسلسل</button>}{show && <strong>{item.sequence.join("  •  ")}</strong>}{seen && !show && <span>اكتب ما تتذكره</span>}</div><input className="answer" disabled={!seen || show} value={text} onChange={(e) => setText(e.target.value)} placeholder="اكتب هنا" /><button className="primary" disabled={!text.trim()} onClick={submitText}>تأكيد</button></>}
+      {item.type === "imageTextInput" && <><PictureCard item={item.image} /><input className="answer" value={text} onChange={(e) => setText(e.target.value)} placeholder="اكتب اسم الصورة" /><button className="primary" disabled={!text.trim()} onClick={submitText}>تأكيد</button></>}
+      {item.type === "timedGrid" && <><Timer elapsed={elapsed} started={!!timerStart} onStart={() => setTimerStart(Date.now())} onStop={() => setTimerStart(null)} /><div className="timedGrid">{item.items.map((x, i) => typeof x === "string" ? <div className="letterTile" key={i}>{x}</div> : <PictureCard item={x} small key={x.label} />)}</div><label className="label compact">عدد الأخطاء أو الترددات<select value={errors} onChange={(e) => setErrors(e.target.value)}><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4 أو أكثر</option></select></label><button className="primary" disabled={!timerStart && !elapsed} onClick={submitTimedGrid}>تم</button></>}
+      {item.type === "reactionImage" && <><PictureCard item={item.image} large /><Choice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={submitReaction} /></>}
+      {item.type === "timedReading" && <><div className="reading">{item.text}</div><Timer elapsed={elapsed} started={!!timerStart} onStart={() => setTimerStart(Date.now())} onStop={() => setReadingDone(true)} stopText="انتهيت" />{readingDone && <><h4>{item.question}</h4><ImageChoice choices={item.choices} selected={selected} setSelected={setSelected} onSubmit={submitTimedReading} /></>}</>}
     </div>
   );
 }
 
+function ImageChoice({ choices, selected, setSelected, onSubmit }) {
+  return <><div className="imageChoices">{choices.map((c) => <button key={c.value} className={selected === c.value ? "selected" : ""} onClick={() => setSelected(c.value)}><PictureCard item={c} /><b>{c.label}</b></button>)}</div><button className="primary" disabled={!selected} onClick={() => onSubmit(selected)}>تأكيد</button></>;
+}
+
+function PictureCard({ item, small, large }) {
+  return <div className={`pic ${small ? "small" : ""} ${large ? "large" : ""}`}><img src={item.image} alt={item.label} /><span>{item.emoji}</span></div>;
+}
+
 function Choice({ choices, selected, setSelected, onSubmit }) {
-  return <><div className="choices">{choices.map((c) => <button key={c} className={selected === c ? "selected" : ""} onClick={() => setSelected(c)}>{c}</button>)}</div><button className="primary" disabled={!selected} onClick={onSubmit}>تأكيد الإجابة</button></>;
+  return <><div className="choices">{choices.map((c) => <button key={c} className={selected === c ? "selected" : ""} onClick={() => setSelected(c)}>{c}</button>)}</div><button className="primary" disabled={!selected} onClick={onSubmit}>تأكيد</button></>;
 }
 
-function Timer({ elapsed, started, onStart, onStop, stopText = "إيقاف مؤقت" }) {
-  return <div className="timer"><div><span>الوقت</span><b>{(elapsed / 1000).toFixed(1)}s</b></div>{!started ? <button className="primary" onClick={onStart}>ابدأ المؤقت</button> : <button className="secondary" onClick={onStop}>{stopText}</button>}</div>;
+function ColorChoice({ choices, selected, setSelected, onSubmit }) {
+  return <><div className="colors">{choices.map((c) => <button key={c.value} className={selected === c.value ? "selected" : ""} style={{ background: c.color }} onClick={() => setSelected(c.value)} />)}</div><button className="primary" disabled={!selected} onClick={onSubmit}>تأكيد</button></>;
 }
 
-function Results({ intake, safety, responses, onRestart }) {
-  const results = useMemo(() => computeResults(responses, safety), [responses, safety]);
-  const plan = therapyPlan(results.domainScores);
+function OrderedTap({ choices, sequence, setSequence, onSubmit }) {
+  return <><div className="sequence">اختيارك: <b>{sequence.length ? sequence.join(" ← ") : "ابدأ الضغط"}</b></div><div className="choices">{choices.map((c) => <button key={c} onClick={() => setSequence((old) => [...old, c])}>{c}</button>)}</div><div className="row"><button className="secondary" onClick={() => setSequence([])}>مسح</button><button className="primary" disabled={!sequence.length} onClick={onSubmit}>تأكيد</button></div></>;
+}
+
+function Timer({ elapsed, started, onStart, onStop, stopText = "إيقاف" }) {
+  return <div className="timer"><div><span>الوقت</span><b>{(elapsed / 1000).toFixed(1)}s</b></div>{!started ? <button className="primary" onClick={onStart}>ابدأ</button> : <button className="secondary" onClick={onStop}>{stopText}</button>}</div>;
+}
+
+function Results({ intake, safety, responses, stars, onRestart }) {
+  const results = useMemo(() => computeResults(responses, safety, intake), [responses, safety, intake]);
+  const plan = useMemo(() => makePlan(results.domainScores), [results.domainScores]);
   const [copied, setCopied] = useState(false);
-  const labels = { spokenLanguage: "فهم التعليمات", phonological: "الوعي الصوتي", orthographic: "الحروف والأشكال", rapidNaming: "سرعة التسمية", decoding: "القراءة", spellingMemory: "الإملاء والذاكرة" };
-  const payload = { assessmentType: "arabic_egyptian_dyslexia_pretest_v2", createdAt: new Date().toISOString(), intake, safety, ...results, therapyPlan: plan, responses, note: "Screening only, not standalone diagnosis." };
-  async function copy() { await navigator.clipboard?.writeText(JSON.stringify(payload, null, 2)); setCopied(true); setTimeout(() => setCopied(false), 1600); }
-  return (
-    <section className="card" dir="rtl">
-      <div className="resultHead"><div><Badge>مستوى الخطورة: {results.risk}</Badge><h2>ملف التقييم: {intake.childName || "بدون اسم"}</h2><p>الدرجة العامة مبنية على المجالات القرائية الأساسية، مع فصل فهم التعليمات عن القراءة.</p></div><div className="overall"><b>{results.overall}</b><span>/100</span></div></div>
-      {results.flags.length > 0 && <Notice warn><b>ملاحظات تفسيرية:</b><ul>{results.flags.map((f) => <li key={f}>{f}</li>)}</ul></Notice>}
-      <div className="scores">{Object.entries(results.domainScores).map(([d, s]) => { const [txt, cls] = level(s ?? 0); return <div className="score" key={d}><div><h3>{labels[d]}</h3><span className={cls}>{s === null ? "غير مكتمل" : txt}</span></div><strong>{s ?? "—"}</strong><Progress value={s ?? 0} /></div>; })}</div>
-      <h3>المسار العلاجي المقترح</h3>
-      <div className="plans">{plan.map((p, i) => <div className="plan" key={p.domain}><b>{i + 1}</b><div><h4>{p.title}</h4><p>{p.game}</p></div><Badge>مستوى {p.level}</Badge></div>)}</div>
-      <h3>أضعف المهارات التفصيلية</h3>
-      <div className="chips">{Object.entries(results.skillScores).sort((a,b)=>a[1]-b[1]).slice(0,8).map(([k,v])=><span key={k}>{k}: {v}</span>)}</div>
-      <details className="json"><summary>عرض JSON للتخزين في قاعدة البيانات</summary><pre>{JSON.stringify(payload, null, 2)}</pre></details>
-      <div className="row"><button className="secondary" onClick={onRestart}>إعادة الاختبار</button><button className="primary" onClick={copy}>{copied ? "تم النسخ" : "نسخ JSON"}</button></div>
-    </section>
-  );
+  const labels = { spokenLanguage: "فهم التعليمات", phonological: "الأصوات", orthographic: "الحروف والأشكال", rapidNaming: "السرعة", decoding: "القراءة", spellingMemory: "الإملاء والذاكرة" };
+  const payload = { assessmentType: "gamified_arabic_egyptian_pretest_v1", createdAt: new Date().toISOString(), intake, safety, stars, ...results, therapyPlan: plan, responses, note: "Screening only. Not standalone diagnosis." };
+  async function copy() { await navigator.clipboard?.writeText(JSON.stringify(payload, null, 2)); setCopied(true); setTimeout(() => setCopied(false), 1400); }
+  return <section className="card results"><div className="resultHero"><div><span className="missionTag">خريطة فصيح</span><h2>أحسنت يا {intake.childName || "بطل"}!</h2><p>جمعت {stars} نجمة. هذه خريطة تدريب مبدئية وليست تشخيصًا نهائيًا.</p></div><div className="scoreOrb"><b>{results.overall}</b><span>/100</span></div></div><Notice>مؤشر استبيان ولي الأمر: <b>{results.questionnaireRisk}%</b>. يستخدم كمعلومة مساعدة فقط.</Notice>{results.flags.length > 0 && <Notice warn>{results.flags.map((f) => <p key={f}>{f}</p>)}</Notice>}<div className="scoreGrid">{Object.entries(results.domainScores).map(([d, s]) => <div className="scoreCard" key={d}><h3>{labels[d]}</h3><strong>{s ?? "—"}</strong><div className="miniProgress"><i style={{ width: `${s ?? 0}%` }} /></div></div>)}</div><h3>المغامرات المقترحة</h3><div className="plans">{plan.map((p, i) => <div className="plan" key={p.domain}><b>{i + 1}</b><div><h4>{p.title}</h4><p>{p.game}</p></div><span>مستوى {p.level}</span></div>)}</div><details className="json"><summary>JSON للتخزين</summary><pre>{JSON.stringify(payload, null, 2)}</pre></details><div className="row"><button className="secondary" onClick={onRestart}>إعادة الرحلة</button><button className="primary" onClick={copy}>{copied ? "تم النسخ" : "نسخ JSON"}</button></div></section>;
 }
 
-function Title({ tag, title, text }) { return <div className="title"><Badge>{tag}</Badge><div><h2>{title}</h2><p>{text}</p></div></div>; }
-function Badge({ children }) { return <span className="badge">{children}</span>; }
+function Title({ tag, title, text }) { return <div className="title"><span className="missionTag">{tag}</span><div><h2>{title}</h2><p>{text}</p></div></div>; }
+function Feature({ icon, title, text }) { return <div className="feature"><div>{icon}</div><h3>{title}</h3><p>{text}</p></div>; }
 function Notice({ children, warn }) { return <div className={`notice ${warn ? "warn" : ""}`}>{children}</div>; }
-function Progress({ value }) { return <div className="progress"><i style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>; }
-function Field({ label, value, onChange, placeholder, type = "text" }) { return <label className="label">{label}<input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} /></label>; }
-function Select({ label, value, onChange, options }) { return <label className="label">{label}<select value={value} onChange={(e) => onChange(e.target.value)}>{options.map(([v,t]) => <option key={v} value={v}>{t}</option>)}</select></label>; }
+function Field({ label, value, onChange, placeholder = "", type = "text" }) { return <label className="label">{label}<input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} /></label>; }
+function Select({ label, value, onChange, options }) { return <label className="label">{label}<select value={value} onChange={(e) => onChange(e.target.value)}>{options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}</select></label>; }
 function Check({ checked, onChange, children }) { return <label className="check"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /><span>{children}</span></label>; }
 
 const css = `
-*{box-sizing:border-box}html,body,#root{margin:0;min-height:100%;width:100%;overflow-x:hidden}body{background:#eef3f8;color:#172033;font-family:Inter,Tahoma,Arial,sans-serif}#root{display:block}button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.app{width:100%;max-width:1220px;margin-left:auto;margin-right:auto;padding:24px;overflow-x:hidden}.hero{background:linear-gradient(135deg,#0f172a,#1d4ed8);color:white;border-radius:30px;padding:26px;box-shadow:0 24px 70px #0f172a22;margin-bottom:22px}.logo{width:62px;height:62px;border-radius:22px;background:#ffffff22;display:grid;place-items:center;font-size:34px;font-weight:900;float:right;margin-left:16px;flex:0 0 auto}.heroText p{margin:0 0 6px;color:#bfdbfe;font-size:13px;text-transform:uppercase;letter-spacing:.04em}.hero h1{margin:0;font-size:clamp(28px,4vw,46px)}.heroText span{display:block;margin-top:8px;color:#dbeafe}.heroBadges{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0 14px}.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start;width:100%;direction:ltr}main{min-width:0;direction:rtl}.side{direction:rtl}.side{position:sticky;top:20px;background:#ffffffcc;border:1px solid #dbe4ef;border-radius:26px;padding:18px;box-shadow:0 18px 55px #0f172a12}.side h3{margin:0 0 14px}.step{display:flex;align-items:center;gap:10px;padding:10px;border-radius:16px;color:#64748b}.step b{width:28px;height:28px;border-radius:50%;background:#e2e8f0;display:grid;place-items:center;font-size:12px}.step.active{background:#eff6ff;color:#1d4ed8;font-weight:900}.step.active b{background:#2563eb;color:white}.step.done{color:#0f766e}.step.done b{background:#ccfbf1}.card{background:#fffffff0;border:1px solid #dbe4ef;border-radius:30px;padding:26px;box-shadow:0 24px 70px #0f172a18;animation:fade .25s ease both}@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}.badge{display:inline-flex;align-items:center;padding:7px 11px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-weight:900;font-size:12px}.progress{height:10px;background:#e2e8f0;border-radius:999px;overflow:hidden}.progress i{display:block;height:100%;background:linear-gradient(90deg,#38bdf8,#2563eb,#7c3aed);transition:.3s}.title,.moduleHead,.resultHead{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:22px}.title{justify-content:flex-start}.title h2,.moduleHead h2,.resultHead h2{margin:6px 0 6px;font-size:28px}.title p,.moduleHead p,.resultHead p,.muted{color:#64748b;line-height:1.8;margin:0}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.label{display:grid;gap:8px;font-weight:900;color:#334155;margin-bottom:14px}input,select,textarea{width:100%;border:1px solid #dbe4ef;background:white;border-radius:16px;padding:13px;outline:0}input:focus,select:focus,textarea:focus{border-color:#60a5fa;box-shadow:0 0 0 4px #dbeafe}textarea{min-height:100px;resize:vertical}.notice{background:#f8fafc;border:1px solid #dbe4ef;border-radius:20px;padding:14px 16px;margin:18px 0;line-height:1.8}.notice.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}.primary,.secondary,.link,.audio{border:0;border-radius:16px;padding:13px 18px;font-weight:900}.primary{background:#2563eb;color:white;box-shadow:0 12px 30px #2563eb33}.primary:hover:not(:disabled){background:#1d4ed8}.secondary{background:#eef2ff;color:#3730a3}.link{background:transparent;color:#64748b;margin-top:18px}.audio{background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc}.row{display:flex;gap:12px;flex-wrap:wrap}.checks{display:grid;gap:12px}.check{display:flex;gap:12px;align-items:center;padding:14px;border:1px solid #dbe4ef;border-radius:18px;background:white;font-weight:900}.check input{width:20px;height:20px}.moduleHead strong{width:84px;height:84px;border-radius:28px;background:#eff6ff;color:#1d4ed8;display:grid;place-items:center;font-size:25px}.question{margin-top:22px;background:#fbfdff;border:1px solid #dbe4ef;border-radius:26px;padding:22px}.qTop{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}.question h3{font-size:23px;margin:0 0 10px}.choices{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:18px 0}.choices.big{grid-template-columns:repeat(4,1fr)}.choices button,.letters button{min-height:58px;border:1px solid #dbe4ef;border-radius:18px;background:white;font-weight:900;font-size:18px;color:#172033}.choices button:hover,.letters button:hover{background:#eff6ff;border-color:#93c5fd}.choices .selected,.letters .selected{background:#dbeafe;border-color:#2563eb;color:#1d4ed8;box-shadow:inset 0 0 0 2px #2563eb}.letters{display:grid;grid-template-columns:repeat(3,90px);gap:12px;justify-content:center;margin:20px 0}.letters button{height:78px;font-size:34px}.sequence{padding:14px;border-radius:18px;background:#f8fafc;border:1px dashed #cbd5e1;margin:16px 0}.answer{margin:18px 0;font-size:22px;font-weight:900;text-align:right}.memory{min-height:112px;border:1px dashed #cbd5e1;border-radius:24px;background:#f8fafc;display:grid;place-items:center;margin:18px 0;padding:18px}.memory strong{font-size:34px;color:#1d4ed8}.timer{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px;border-radius:22px;background:#f8fafc;border:1px solid #dbe4ef;margin:18px 0}.timer span{color:#64748b;font-size:12px;font-weight:900}.timer b{display:block;font-size:32px}.naming{direction:rtl;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.naming div{background:white;border:1px solid #dbe4ef;border-radius:20px;min-height:74px;display:grid;place-items:center;font-size:21px;font-weight:900}.reading{font-size:28px;line-height:2;font-weight:900;background:white;border:1px solid #dbe4ef;border-radius:24px;padding:22px;margin:18px 0}.resultHead{align-items:center;border-bottom:1px solid #dbe4ef;padding-bottom:18px}.overall{width:130px;height:130px;border-radius:40px;background:linear-gradient(135deg,#dbeafe,#dcfce7);display:grid;place-items:center}.overall b{font-size:48px}.overall span{color:#64748b}.scores{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:22px 0}.score{background:white;border:1px solid #dbe4ef;border-radius:24px;padding:18px}.score>div{display:flex;justify-content:space-between;align-items:center;gap:10px}.score h3{font-size:17px;margin:0}.score strong{font-size:44px;display:block;margin:10px 0}.good,.mid,.warn,.bad{border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;white-space:nowrap}.good{background:#dcfce7;color:#15803d}.mid{background:#fef9c3;color:#a16207}.warn{background:#ffedd5;color:#c2410c}.bad{background:#ffe4e6;color:#be123c}.plans{display:grid;gap:12px}.plan{display:grid;grid-template-columns:42px 1fr auto;gap:14px;align-items:center;border:1px solid #dbe4ef;border-radius:22px;padding:16px;background:white}.plan>b{width:42px;height:42px;border-radius:16px;background:#eff6ff;color:#1d4ed8;display:grid;place-items:center}.plan h4{margin:0 0 5px}.plan p{margin:0;color:#334155}.chips{display:flex;flex-wrap:wrap;gap:10px}.chips span{background:#f1f5f9;border:1px solid #dbe4ef;border-radius:999px;padding:9px 12px;font-weight:800;font-size:13px}.json{margin:18px 0;border:1px solid #dbe4ef;border-radius:20px;padding:14px;background:#0f172a;color:white}.json pre{direction:ltr;text-align:left;overflow:auto;max-height:360px;color:#dbeafe;font-size:12px}@media(max-width:940px){.layout{grid-template-columns:1fr;direction:rtl}.side{position:static}.grid2,.scores,.choices{grid-template-columns:1fr}.choices.big{grid-template-columns:repeat(2,1fr)}.naming{grid-template-columns:repeat(2,1fr)}.title,.moduleHead,.resultHead{flex-direction:column}.plan{grid-template-columns:1fr}}@media(max-width:560px){.app{padding:14px}.hero,.card{padding:18px;border-radius:24px}.letters{grid-template-columns:repeat(3,1fr)}.choices.big{grid-template-columns:1fr}}
+*{box-sizing:border-box}html,body,#root{margin:0;min-height:100%;width:100%;overflow-x:hidden}body{background:radial-gradient(circle at top right,#fed7aa,transparent 35%),#fff7ed;color:#3b2f2f;font-family:Inter,Tahoma,Arial,sans-serif}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}.app{width:100%;max-width:1180px;margin-inline:auto;padding:22px}.top{background:linear-gradient(135deg,#7c2d12,#f97316);color:white;border-radius:34px;padding:24px;box-shadow:0 24px 70px #9a341233;margin-bottom:22px}.brand{display:flex;align-items:center;gap:16px}.mascot{width:70px;height:70px;border-radius:25px;background:#ffffff26;display:grid;place-items:center;font-size:38px}.brand p{margin:0 0 4px;color:#ffedd5;font-size:13px;font-weight:900}.brand h1{margin:0;font-size:clamp(28px,4vw,44px)}.topStats{display:flex;gap:10px;margin:18px 0}.topStats span{background:#fff7ed;color:#9a3412;border-radius:999px;padding:8px 14px;font-weight:950}.progress,.miniProgress{height:10px;background:#ffedd5;border-radius:999px;overflow:hidden}.progress i,.miniProgress i{display:block;height:100%;background:linear-gradient(90deg,#facc15,#fb923c,#ea580c);transition:.3s}.stage{display:block}.card{background:#fffaf3e8;border:1px solid #fed7aa;border-radius:34px;padding:28px;box-shadow:0 24px 70px #9a34121c;animation:fade .25s ease both}@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}.guide,.title,.missionHead,.resultHero{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:22px}.guide{align-items:center}.owl{width:105px;height:105px;border-radius:34px;background:#ffedd5;display:grid;place-items:center;font-size:62px}.guide h2,.title h2,.missionHead h2,.resultHero h2{margin:0 0 8px;font-size:30px}.guide p,.title p,.missionHead p,.resultHero p,.feature p{color:#7c5b45;line-height:1.8;margin:0}.missionTag{display:inline-flex;background:#ffedd5;color:#c2410c;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:950}.featureGrid,.grid2,.scoreGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.feature{background:white;border:1px solid #fed7aa;border-radius:26px;padding:18px}.feature div{font-size:35px}.feature h3{margin:8px 0 5px}.notice{background:#fff7ed;border:1px solid #fed7aa;border-radius:22px;padding:15px 17px;margin:18px 0;line-height:1.8}.notice.warn{background:#fff1f2;border-color:#fecdd3;color:#9f1239}.primary,.secondary,.ghost,.sound{border:0;border-radius:18px;padding:13px 20px;font-weight:950}.primary{background:#f97316;color:white;box-shadow:0 14px 28px #f9731633}.primary:hover:not(:disabled){background:#ea580c}.primary.big{font-size:18px;padding:16px 24px}.secondary{background:#ffedd5;color:#9a3412}.ghost{background:transparent;color:#9a3412}.sound{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.label{display:grid;gap:8px;font-weight:900;color:#5b4334}input,select{width:100%;border:1px solid #fed7aa;background:white;border-radius:18px;padding:14px;color:#3b2f2f;outline:none}input:focus,select:focus{border-color:#fb923c;box-shadow:0 0 0 4px #ffedd5}.checks{display:grid;gap:12px}.check{display:flex;gap:12px;align-items:center;background:white;border:1px solid #fed7aa;border-radius:20px;padding:14px;font-weight:900}.check input{width:20px;height:20px}.mission{min-height:620px}.bubble,.scoreOrb{width:96px;height:96px;border-radius:32px;background:#ffedd5;color:#c2410c;display:grid;place-items:center;font-size:26px;font-weight:950;flex:0 0 auto}.question{margin-top:22px;background:white;border:1px solid #fed7aa;border-radius:30px;padding:22px}.qTop{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.qTop span{background:#fff7ed;color:#9a3412;border-radius:999px;padding:7px 11px;font-weight:950;font-size:12px}.question h3{margin:0 0 16px;font-size:25px}.imageChoices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}.imageChoices button{border:2px solid #fed7aa;background:#fffaf3;border-radius:28px;padding:12px;font-weight:950;color:#3b2f2f}.imageChoices button.selected,.choices button.selected,.letterGrid button.selected{border-color:#f97316;background:#ffedd5;box-shadow:0 0 0 4px #fed7aa}.pic{position:relative;border-radius:22px;overflow:hidden;height:170px;background:#ffedd5;display:grid;place-items:center}.pic.small{height:92px;border-radius:18px}.pic.large{height:240px}.pic img{width:100%;height:100%;object-fit:cover;display:block}.pic span{position:absolute;right:10px;bottom:8px;font-size:34px;background:#ffffffd9;border-radius:14px;padding:3px 7px}.choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.choices button{min-height:62px;border:2px solid #fed7aa;background:#fffaf3;border-radius:20px;font-size:19px;font-weight:950;color:#3b2f2f}.colors{display:flex;gap:16px;justify-content:center;margin:24px 0}.colors button{width:96px;height:96px;border-radius:50%;border:6px solid white;box-shadow:0 10px 24px #7c2d121f}.colors button.selected{outline:6px solid #f97316}.letterGrid{display:grid;grid-template-columns:repeat(3,90px);gap:12px;justify-content:center;margin:20px 0}.letterGrid button,.letterTile{height:82px;border:2px solid #fed7aa;border-radius:22px;background:#fffaf3;font-size:36px;font-weight:950;color:#3b2f2f;display:grid;place-items:center}.sequence{background:#fff7ed;border:1px dashed #fb923c;border-radius:20px;padding:14px;margin:14px 0}.answer{margin:18px 0;font-size:22px;text-align:right}.memory,.rest{min-height:160px;background:#fff7ed;border:1px dashed #fb923c;border-radius:28px;margin:18px 0;padding:20px;display:grid;place-items:center;text-align:center}.memory strong{font-size:42px;color:#c2410c}.miniPics{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}.timer{display:flex;justify-content:space-between;gap:14px;align-items:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:24px;padding:16px;margin:18px 0}.timer span{display:block;color:#9a3412;font-size:12px;font-weight:950}.timer b{font-size:32px}.timedGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0}.label.compact{max-width:260px}.reading{font-size:30px;line-height:2;font-weight:950;background:#fff7ed;border:1px solid #fed7aa;border-radius:24px;padding:22px;margin:18px 0}.feedback{position:fixed;top:22px;left:50%;transform:translateX(-50%);background:#431407;color:white;border-radius:999px;padding:14px 22px;z-index:20;display:flex;gap:12px;align-items:center;box-shadow:0 20px 50px #0003}.scoreOrb b{font-size:46px}.scoreOrb span{color:#9a3412}.scoreCard{background:white;border:1px solid #fed7aa;border-radius:24px;padding:18px}.scoreCard h3{margin:0}.scoreCard strong{font-size:42px}.plans{display:grid;gap:12px}.plan{display:grid;grid-template-columns:42px 1fr auto;gap:14px;align-items:center;background:white;border:1px solid #fed7aa;border-radius:24px;padding:16px}.plan>b{width:42px;height:42px;border-radius:16px;background:#ffedd5;color:#c2410c;display:grid;place-items:center}.plan h4,.plan p{margin:0}.plan p{color:#7c5b45}.plan span{background:#ffedd5;color:#c2410c;border-radius:999px;padding:8px 12px;font-weight:950}.json{margin:18px 0;background:#431407;color:white;border-radius:22px;padding:14px}.json pre{direction:ltr;text-align:left;overflow:auto;max-height:320px;color:#ffedd5;font-size:12px}@media(max-width:850px){.featureGrid,.grid2,.imageChoices,.choices,.scoreGrid,.timedGrid{grid-template-columns:1fr}.guide,.missionHead,.resultHero{flex-direction:column}.plan{grid-template-columns:1fr}.pic{height:150px}}@media(max-width:520px){.app{padding:14px}.top,.card{padding:18px;border-radius:26px}.brand{align-items:flex-start}.mascot{width:58px;height:58px;font-size:32px}.letterGrid{grid-template-columns:repeat(3,1fr)}.reading{font-size:23px}.colors button{width:76px;height:76px}}
 `;
